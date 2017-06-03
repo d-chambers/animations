@@ -15,7 +15,7 @@ from matplotlib.collections import PatchCollection
 
 import seaborn as sns
 
-STARTING_POINTS = np.array([[0, 0], [0, 1], [1, 0]])
+STARTING_POINTS = np.array([[-.25, -.25], [0, 1], [1, 0]])
 
 
 # STARTING_VALUES
@@ -175,16 +175,34 @@ class PlotPlex2D:
         ax.set_xticklabels([])
         ax.set_yticklabels([])
 
-    def plot_2dreflection(self):
+    def plot_2d_reflection(self):
         s1 = self.simplex.cpoints
         s2 = self.simplex.update_highest_point(self.simplex.reflection)
         self._plot_2D_sequence('Reflection', s1, s2)
+    
+    def plot_2d_expansion(self):
+        s1 = self.simplex.cpoints
+        s2 = self.simplex.update_highest_point(self.simplex.expansion)
+        self._plot_2D_sequence('Expansion', s1, s2)
+    
+    def plot_2d_contraction(self):
+        s1 = self.simplex.cpoints
+        s2 = self.simplex.update_highest_point(self.simplex.contraction)
+        self._plot_2D_sequence('Contraction', s1, s2)
+        
+    def plot_2d_shrink(self):
+        s1 = self.simplex.cpoints
+        s2 = self.simplex.shrink
+        self._plot_2D_sequence('Shrink', s1, s2)
+        
 
     def _plot_2D_sequence(self, path, s1, s2, ax=None):
         make_path(path)
         seqs = frame_by_frame(s1, s2)
         centroid = self.simplex.ccentroid
+        new_centroid = calculate_centroid(s2)
         for num, seq in enumerate(seqs):
+            plt.show()
             fig = self.get_figure()
             plt.axes().set_aspect('equal')
             ax = plt.gca()
@@ -193,17 +211,26 @@ class PlotPlex2D:
                                          edgecolor='k')
             ax.add_collection(collection)
 #            import pdb; pdb.set_trace()
-            ax.scatter([centroid[0]], [centroid[1]], color='r')
+            ax.scatter([centroid[0]], [centroid[1]], color='k')
+            ax.scatter([new_centroid[0]], [new_centroid[1]], color='r')
             self.set_axis_limits(ax)
-            
-#            if title:
             plt.title(path, fontsize=20)
-            plt.show()
+            fin = f'{num:03d}.png'
+            file_name = os.path.join(path, fin)
+            plt.savefig(file_name)
+            if num == len(seqs) - 1:
+                for num in range(num, num + len(seqs) // 2):
+                    fin = f'{num:03d}.png'
+                    file_name = os.path.join(path, fin)
+                    plt.savefig(file_name)
 
 
 # ----------------------------- Run animations
 pp = PlotPlex2D()
-pp.plot_2dreflection()
+pp.plot_2d_reflection()
+pp.plot_2d_expansion()
+pp.plot_2d_contraction()
+pp.plot_2d_shrink()
 
 
 

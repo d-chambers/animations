@@ -105,3 +105,6 @@ ENV/
 
 # animation files
 jpegs/
+*png
+*jpeg
+*mp4
