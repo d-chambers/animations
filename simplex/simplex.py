@@ -12,11 +12,11 @@ import numpy as np
 from matplotlib.patches import Polygon
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.collections import PatchCollection
+# import seaborn as sns
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-import seaborn as sns
-
-STARTING_POINTS = np.array([[-.25, -.25], [0, 1], [1, 0]])
-
+# STARTING_POINTS = np.array([[-.25, -.25], [0, 1], [1, 0]])
+STARTING_POINTS = np.array([[-2, -2], [-1, -1], [-1, -.5]])
 
 # STARTING_VALUES
 
@@ -29,11 +29,26 @@ def func(point):
     return x ** 2 + (y - x ** 2) ** 2
 
 
+class cache:
+    """ A property like cache """
+    def __init__(self, method):
+        self.method = method
+
+    def __set_name__(self, owner, name):
+        self.name = name
+
+    def __get__(self, instance, owner):
+        assert hasattr(instance, 'cache')
+        if self.name not in instance.cache:
+            instance.cache[self.name] = self.method(instance)
+        return instance.cache[self.name]
+
+
 class Simplex:
     """ class to capture behavior of simplex for graphing """
 
-    alpha = 1  # reflection coef.
-    gamma = 2  # expansion coef.
+    alpha = 2  # reflection coef.
+    gamma = 4  # expansion coef.
     rho = 0.5  # contraction coef.
     sigma = 0.5  # shrink coef
 
@@ -44,43 +59,89 @@ class Simplex:
             values_0 = np.array([func(x) for x in points])
         assert len(points) == len(values_0)
         # value place-holder
-        self.cvalues_ =values_0.astype(float)
+        self.cvalues_ = values_0.astype(float)
         self.cpoints = points.astype(float)  # current points
         self.ppoints = points.astype(float)  # previous points
+        self.last_move = None
+        self.func = func
 
-    # -------------------------------- properties
-    @property
+        self.p_min_values = np.min(self.cvalues_)
+
+        self.cache = {}
+
+    # ---------------------------- cached properties
+    @cache
+    def sorted_cvalues(self):
+        return self.cvalues_[np.argsort(self.cvalues_)]
+
+    @cache
+    def sorted_values(self):
+        return np.sort(self.cvalues)
+
+    @cache
+    def cvalues(self):
+        return np.apply_along_axis(self.func, 1, self.cpoints)
+
+    @cache
     def ccentroid(self):
         return calculate_centroid(self.cpoints)
 
-    @property
+    @cache
     def pcentroid(self):
         return calculate_centroid(self.ppoints)
 
-    @property
+    @cache
+    def max_vertex_index(self):
+        return np.argmax(self.cvalues)
+
+    @cache
     def max_vertex(self):
-        return self.cpoints[np.argmax(self.cvalues_)]
+        return self.cpoints[self.max_vertex_index]
 
-    @property
+    @cache
+    def max_value(self):
+        return self.func(self.max_vertex)
+
+    @cache
+    def min_vertex_value(self):
+        return np.argmin(self.cvalues)
+
+    @cache
     def min_vertex(self):
-        return self.cpoints[np.argmin(self.cvalues_)]
+        return self.cpoints[self.min_vertex_value]
 
-    @property
+    @cache
+    def min_value(self):
+        return self.func(self.min_vertex)
+
+    @cache
     def reflection(self):
         """ get reflected version of triangle """
         return self.ccentroid + (self.ccentroid - self.max_vertex) * self.alpha
 
-    @property
+    @cache
+    def reflection_value(self):
+        return self.func(self.reflection)
+
+    @cache
     def expansion(self):
         """ get the expansion point """
         return self.ccentroid + (self.reflection - self.ccentroid) * self.gamma
 
-    @property
+    @cache
+    def expansion_value(self):
+        return self.func(self.expansion)
+
+    @cache
     def contraction(self):
         """ get contraction point """
         return self.ccentroid + (self.max_vertex - self.ccentroid) * self.rho
 
-    @property
+    @cache
+    def contraction_value(self):
+        return self.func(self.contraction)
+
+    @cache
     def shrink(self):
         """ get shrunken simplex """
         ar = np.copy(self.cpoints)
@@ -92,11 +153,46 @@ class Simplex:
         return ar
 
     # -------------------------------- methods
+
     def update_highest_point(self, new_point):
         ar = np.copy(self.cpoints)
-        ar[int(np.argmax(self.cvalues_)), :] = new_point
-        assert np.all(ar[np.argmax(self.cvalues_)] == new_point)
+        ar[int(np.argmax(self.cvalues)), :] = new_point
+        assert np.all(ar[np.argmax(self.cvalues)] == new_point)
         return ar
+
+    def _update(self, move):
+        assert move in {'reflection', 'expansion', 'contraction', 'shrink'}
+        self.ppoints = self.cpoints
+        self.last_move = move
+        new_val = getattr(self, move)
+        if move == 'shrink':
+            self.cpoints = new_val
+        else:
+            self.cpoints = self.update_highest_point(new_val)
+        self.p_min_values = self.min_value
+
+    def iterate(self):
+        """ run an iteration of simplex """
+        assert self.func, 'function must be defined in order to run simplex'
+        # clear cache
+        self.cache = {}
+        # run algorithm
+        assert self.reflection not in self.cpoints
+        if self.min_value < self.reflection_value < self.max_value:
+            self._update('reflection')
+        elif self.reflection_value < self.min_value:
+            assert self.expansion not in self.cpoints
+            if self.expansion_value < self.reflection_value:
+                self._update('expansion')
+            else:
+                self._update('reflection')
+        else:
+            assert self.reflection_value > self.max_value
+            assert self.contraction_value not in self.cpoints
+            if self.contraction_value < self.max_value:
+                self._update('contraction')
+            else:
+                self._update('shrink')
 
 
 # ------------------------------------- simplex auxiliary methods
@@ -126,28 +222,6 @@ def frame_by_frame(points_1, points_2, num=25):
     for ind in range(int(num) + 1):
         out[ind] = points_1 + (ind * change_vector)
     return out
-
-
-#def save_fig(path, **figwargs):
-#    """ decorator factory to save figure in path directory """
-#    path = os.path.join(os.path.dirname(__file__), path)
-#    if not os.path.exists(path):
-#        os.mkdir(path)
-#
-#    def deco(func):
-#        nonlocal counter
-#        counter = 0
-#
-#        def wrap(self, *args, **kwargs):
-#            f = plt.Figure(**figwargs)
-#            func(*args, **kwargs)
-#            save_path = os.path.join(path, f'{counter:0.3d}.jpeg')
-#            f.savefig(save_path)
-#            counter += 1
-#
-#        return wrap
-#
-#    return deco
 
 
 def make_path(path):
@@ -225,13 +299,99 @@ class PlotPlex2D:
                     plt.savefig(file_name)
 
 
-# ----------------------------- Run animations
-pp = PlotPlex2D()
-pp.plot_2d_reflection()
-pp.plot_2d_expansion()
-pp.plot_2d_contraction()
-pp.plot_2d_shrink()
+class PlotPlex3D:
+    xvals = np.linspace(-2, 2, 100)
+    yvals = np.linspace(-2, 2, 100)
 
+    def __init__(self, simplex):
+        self.simplex = simplex
+        self.func = simplex.func
+        assert self.func is not None, 'simplex must have function to optimize'
+        self.mesh = np.stack(np.meshgrid(self.xvals, self.yvals))
+        self.func_values = np.apply_along_axis(self.func, 0, self.mesh)
+        self.min_val = self.func_values.min()
+        self.min_val_ind = np.where(self.func_values == self.min_val)
+        self.min_x = self.xvals[self.min_val_ind[0]]
+        self.min_y = self.yvals[self.min_val_ind[1]]
+
+    def plot_func(self, ax=None):
+        """ plot the objective function """
+        ax = ax or Axes3D(plt.gcf())
+        ax.plot_surface(self.mesh[0], self.mesh[1], self.func_values,
+                        alpha=0.6)
+        ax.scatter([self.min_x], [self.min_y], [self.min_val], color='k')
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.set_zticklabels([])
+        plt.title('Reflection')
+        return ax
+
+    def plot_simplex(self, ax=None, verticies=None):
+        ax = ax or Axes3D(plt.gcf())
+        points = self.simplex.cpoints if verticies is None else verticies
+        values = np.apply_along_axis(self.func, 1, points)
+        # draw lines between points
+        lpoints = np.vstack([points, points[0]])
+        lvalues = np.append(values, values[0])
+        ax.plot(lpoints[:, 0], lpoints[:, 1], lvalues)
+        # draw scatter points on verticies
+        ax.scatter(points[:, 0], points[:, 1], values, color='r')
+
+    def plot_optimization(self, num_frames=8, num_iter=20):
+        count = 0
+        for _ in range(num_iter):
+            # run one round of optimization
+            make_path('Simplex')
+            self.simplex.iterate()
+            sequence = frame_by_frame(self.simplex.ppoints, self.simplex.cpoints,
+                                      num=num_frames)
+            for num, seq in enumerate(sequence):
+                plt.show()
+                f = plt.Figure(figsize=(9, 9))
+                # f = plt.gcf()  #Figure()
+                # ax = f.add_subplot(111, projection='3d')
+                ax.view_init(elev=50)
+                self.plot_func(ax=ax)
+                self.plot_simplex(ax, verticies=seq)
+                plt.title(self.simplex.last_move.capitalize())
+                path = os.path.join('Simplex', f'{count:03d}.png')
+                ax.view_init(elev=50)
+                plt.savefig(path)
+                count += 1
+                # plot pause
+                if num == len(sequence) - 1:
+                    for _ in range(4):
+                        path = os.path.join('Simplex', f'{count:03d}.png')
+                        ax.set_title('')
+                        ax.view_init(elev=50)
+                        plt.savefig(path)
+                        count += 1
+
+
+
+# ----------------------------- Run animations
+make2d = False
+make3d = True
+
+
+if make2d:  # make 2d stuff
+    pp = PlotPlex2D()
+    pp.plot_2d_reflection()
+    pp.plot_2d_expansion()
+    pp.plot_2d_contraction()
+    pp.plot_2d_shrink()
+
+
+if make3d:  # make 3d stuff
+    points = np.array([[-2, -2], [-1.95, -1.75], [-1.75, -1.95]])
+    simplex = Simplex(points, func=func)
+    pp = PlotPlex3D(simplex)
+    pp.plot_optimization()
+    # f = plt.gcf()
+    # ax = Axes3D(f)
+    # ax = pp.plot_func(ax=ax)
+    # pp.plot_simplex(ax=ax)
+    # plt.show()
 
 
 
