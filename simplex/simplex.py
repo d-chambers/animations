@@ -348,8 +348,8 @@ class PlotPlex3D:
             for num, seq in enumerate(sequence):
                 plt.show()
                 f = plt.Figure(figsize=(9, 9))
-                # f = plt.gcf()  #Figure()
-                # ax = f.add_subplot(111, projection='3d')
+                f = plt.gcf()  #Figure()
+                ax = f.add_subplot(111, projection='3d')
                 ax.view_init(elev=50)
                 self.plot_func(ax=ax)
                 self.plot_simplex(ax, verticies=seq)
