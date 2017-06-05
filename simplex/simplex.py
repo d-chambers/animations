@@ -15,10 +15,18 @@ from matplotlib.collections import PatchCollection
 # import seaborn as sns
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-# STARTING_POINTS = np.array([[-.25, -.25], [0, 1], [1, 0]])
-STARTING_POINTS = np.array([[-2, -2], [-1, -1], [-1, -.5]])
-
+STARTING_POINTS = np.array([[-.25, -.25], [0, 1], [1, 0]])
+#STARTING_POINTS = np.array([[-2, -2], [-1, -1], [-1, -.5]])
+STARTING_VALUES = np.array([1, 0, 0])
 # STARTING_VALUES
+
+
+def dummy_func(point):
+    if point in STARTING_POINTS:
+        ind = [num for num, x in enumerate(STARTING_POINTS)
+               if np.all(x == point)]
+        return STARTING_VALUES[ind[0]]
+    return 2
 
 
 def func(point):
@@ -234,44 +242,49 @@ class PlotPlex2D:
     """ convenience class for plotting simplex """
 
     def __init__(self):
-        self.simplex = Simplex(STARTING_POINTS, values_0=np.array([1, 0, 0]))
+        self.simplex = Simplex(STARTING_POINTS, func=dummy_func)
         
     def get_figure(self):
         fig = plt.Figure(figsize=(1, 1))
         return fig
     
-    def set_axis_limits(self, ax):
+    def set_axis_limits(self, ax, seqs):
         cent_x = self.simplex.ccentroid[0]
         cent_y = self.simplex.ccentroid[1]
         
-        ax.set_xlim(cent_x - 1, cent_x + 1)
-        ax.set_ylim(cent_y - 1, cent_x + 1)
+        x_min = seqs[:, :, 0].min() 
+        x_max = seqs[:, :, 0].max()
+        y_min = seqs[:, :, 1].min()
+        y_max = seqs[:, :, 1].max()
+        
+        ax.set_xlim(x_min - .5, x_max + .5)
+        ax.set_ylim(y_min - .5, y_max + .5)
         ax.set_xticklabels([])
         ax.set_yticklabels([])
 
     def plot_2d_reflection(self):
         s1 = self.simplex.cpoints
         s2 = self.simplex.update_highest_point(self.simplex.reflection)
-        self._plot_2D_sequence('Reflection', s1, s2)
+        self._plot_2D_sequence(r'Reflection ($\alpha = 2$)', s1, s2)
     
     def plot_2d_expansion(self):
         s1 = self.simplex.cpoints
         s2 = self.simplex.update_highest_point(self.simplex.expansion)
-        self._plot_2D_sequence('Expansion', s1, s2)
+        self._plot_2D_sequence(r'Expansion ($\gamma = 4$)', s1, s2)
     
     def plot_2d_contraction(self):
         s1 = self.simplex.cpoints
         s2 = self.simplex.update_highest_point(self.simplex.contraction)
-        self._plot_2D_sequence('Contraction', s1, s2)
+        self._plot_2D_sequence(r'Contraction ($\rho = 0.5$)', s1, s2)
         
     def plot_2d_shrink(self):
         s1 = self.simplex.cpoints
         s2 = self.simplex.shrink
-        self._plot_2D_sequence('Shrink', s1, s2)
+        self._plot_2D_sequence(r'Shrink ($\sigma = 0.5$)', s1, s2)
         
 
     def _plot_2D_sequence(self, path, s1, s2, ax=None):
-        make_path(path)
+        make_path(path.split()[0])
         seqs = frame_by_frame(s1, s2)
         centroid = self.simplex.ccentroid
         new_centroid = calculate_centroid(s2)
@@ -287,15 +300,15 @@ class PlotPlex2D:
 #            import pdb; pdb.set_trace()
             ax.scatter([centroid[0]], [centroid[1]], color='k')
             ax.scatter([new_centroid[0]], [new_centroid[1]], color='r')
-            self.set_axis_limits(ax)
+            self.set_axis_limits(ax, seqs)
             plt.title(path, fontsize=20)
             fin = f'{num:03d}.png'
-            file_name = os.path.join(path, fin)
+            file_name = os.path.join(path.split()[0], fin)
             plt.savefig(file_name)
             if num == len(seqs) - 1:
                 for num in range(num, num + len(seqs) // 2):
                     fin = f'{num:03d}.png'
-                    file_name = os.path.join(path, fin)
+                    file_name = os.path.join(path.split()[0], fin)
                     plt.savefig(file_name)
 
 
@@ -354,24 +367,24 @@ class PlotPlex3D:
                 self.plot_func(ax=ax)
                 self.plot_simplex(ax, verticies=seq)
                 plt.title(self.simplex.last_move.capitalize())
-                path = os.path.join('Simplex', f'{count:03d}.png')
+                path = os.path.join('Simplex', f'{count:03d}.jpeg')
                 ax.view_init(elev=50)
-                plt.savefig(path)
+                plt.savefig(path, dpi=300)
                 count += 1
                 # plot pause
                 if num == len(sequence) - 1:
                     for _ in range(4):
-                        path = os.path.join('Simplex', f'{count:03d}.png')
+                        path = os.path.join('Simplex', f'{count:03d}.jpeg')
                         ax.set_title('')
                         ax.view_init(elev=50)
-                        plt.savefig(path)
+                        plt.savefig(path, dpi=300)
                         count += 1
 
 
 
 # ----------------------------- Run animations
-make2d = False
-make3d = True
+make2d = 0
+make3d = 1
 
 
 if make2d:  # make 2d stuff
@@ -387,17 +400,10 @@ if make3d:  # make 3d stuff
     simplex = Simplex(points, func=func)
     pp = PlotPlex3D(simplex)
     pp.plot_optimization()
-    # f = plt.gcf()
-    # ax = Axes3D(f)
-    # ax = pp.plot_func(ax=ax)
-    # pp.plot_simplex(ax=ax)
-    # plt.show()
 
 
 
-
-
-
+# ffmpeg -r 12 -f image2 -s 1920x1080 -i %03d.png -vcodec libx264 -crf 25  -pix_fmt yuv420p reflection.mp4
 
 
 

@@ -16,6 +16,7 @@ import skfmm
 import xarray as xr
 from skimage import measure
 from mpl_toolkits.mplot3d import Axes3D
+#import seaborn as sns
 
 # directory path for giffs
 JPEG_DIR = 'jpegs'
@@ -37,8 +38,8 @@ STOPE_VELOCITY = 500
 # a color map based on velocity
 
 COLOR1 = tuple(np.array([255, 10, 10])/256.)
-COLOR2 = tuple(np.array([255, 10, 10])/256.)
-COLOR3 = tuple(np.array([255, 10, 10])/256.)
+COLOR2 = tuple(np.array([10, 255, 10])/256.)
+COLOR3 = tuple(np.array([10, 10, 255])/256.)
 COLOR_MAP = {VELOCITIES[0][1]: COLOR1, VELOCITIES[1][1]: COLOR2, 
              VELOCITIES[2][1]: COLOR3, STOPE_VELOCITY: '0.2'}
 
@@ -128,6 +129,10 @@ def plot_surface(ax, ar: np.array, contour_value: float, **kwargs):
                     **kwargs)
 
 
+def plot_dot(ax):
+    """ plot a dot where the event originates """
+    plt.scatter([ORIGIN[0]], [ORIGIN[1]], [ORIGIN[2]])
+
 # ------------------------- Run animations
 # make gif directory
 if not os.path.isdir(JPEG_DIR):
@@ -154,12 +159,19 @@ for num, tt in enumerate(ls[1:-1]):
         plot_surface(ax, speed_with_stope.values, STOPE_VELOCITY, color='0.2',
                      alpha=.3)
         plot_orb(travel_times, tt, ax=ax)
+        # plot the origin of the events
+        plot_orb(travel_times, .007, ax=ax, alpha=1, color='k')
+#        plot_dot(ax)
         ax.view_init(azim=azimuths[num], elev=8)
+    plt.show()
     path = os.path.join(JPEG_DIR, f'{num:03d}.jpeg')
 #    plt.subplots_adjust(left=0.01, right=0.011, top=0.011, bottom=0.01)
+#    ax.set_facecolor('.75')
     f.set_size_inches(8, 8, forward=True)
     f.tight_layout()
-    f.savefig(path, dpi=100)
+    f.savefig(path, dpi=300)
     
-# ffmpeg command : ffmpeg -r 8 -i %03d.jpeg  myTestMovie.mp4
+    
+#ffmpeg -r 10 -f image2 -i %03d.jpeg -qscale 0 fastmarch.mp4
+    
     
