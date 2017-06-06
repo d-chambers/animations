@@ -172,6 +172,7 @@ for num, tt in enumerate(ls[1:-1]):
     f.savefig(path, dpi=300)
     
     
-#ffmpeg -r 10 -f image2 -i %03d.jpeg -qscale 0 fastmarch.mp4
+#ffmpeg -r 10 -f image2 -i %03d.jpeg -qscale 0 -vcodec libx264 -crf 25  -pix_fmt yuv420p fastmarch.mp4
+# ffmpeg -r 8 -i %03d.jpeg -qscale 15 fmm.asf
     
     
