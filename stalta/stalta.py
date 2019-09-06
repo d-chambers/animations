@@ -69,7 +69,7 @@ def animate(tr, path, samps_per_frame=40, sta=5, lta=10, ton=1.5, toff=0.5):
         # save plot
         plt.tight_layout()
         plt.subplots_adjust(hspace=0)
-        plt.savefig(path / f'{num:03d}.png')
+        plt.savefig(path / f'{num:03d}.png', dpi=400)
         # clear state
 
 
