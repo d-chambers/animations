@@ -179,7 +179,7 @@ if __name__ == "__main__":
     path = Path(__file__).parent / 'cofilt'
     thresh_on = 3.5
     thresh_off = 1.0
-    sample_step = 60
+    sample_step = 30
     coin_sum_window = 100
     coin_thresh = 3
 
